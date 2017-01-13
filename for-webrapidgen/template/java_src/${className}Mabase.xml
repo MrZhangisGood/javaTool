@@ -1,0 +1,125 @@
+<#include "/macro.include"/>
+<#assign className = table.className>   
+<#assign classNameLower = className?uncap_first> 
+<#list table.columns as column>
+<#if column.pk>
+<#assign columnpk = column.sqlName>
+</#if>
+</#list>
+<?xml version="1.0" encoding="UTF-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="${daoPath}.${className?substring(3)}Dao">
+
+    <!-- 公共方法  START-->
+	<select id="countAll" resultType="int" >
+		SELECT COUNT(*) FROM ${table.sqlName};
+	</select>
+
+	<insert id="add" parameterType="${entityPath}.${className?substring(3)}">
+		INSERT INTO ${table.sqlName}(
+            ${columnpk}<#list table.columns as column><#if !column.pk>,${column.sqlName}</#if></#list>
+		)
+		VALUES(
+            #_{id}<#list table.columns as column><#if !column.pk>,#_{${column.columnNameLower}}</#if></#list>
+		)
+	</insert>
+	
+	<insert id="adds" parameterType="java.util.List">
+		INSERT INTO ${table.sqlName}(
+            ${columnpk}<#list table.columns as column><#if !column.pk>,${column.sqlName}</#if></#list>
+		)
+		VALUES
+		<foreach collection="list" item="item" index="index" separator=",">
+			(#_{item.id}<#list table.columns as column><#if !column.pk>,#_{item.${column.columnNameLower}}</#if></#list>)
+		</foreach>
+	</insert>
+
+	<update id="update" parameterType="${entityPath}.${className?substring(3)}" >
+		UPDATE ${table.sqlName}
+		<set>
+	    	<#list table.columns as column>
+	    	<#if !column.pk>
+			<if test="${column.columnNameLower} != null">
+				${column.sqlName} = #_{${column.columnNameLower}},
+			</if>
+			</#if>
+	    	</#list>
+			${columnpk}=${columnpk}
+		</set>
+		WHERE IS_DELETE=0 AND ${columnpk}=#_{id};
+	</update>
+
+	<update id="del" parameterType="string" >
+		UPDATE ${table.sqlName} SET IS_DELETE=1,UPDATE_DATE=#_{1} WHERE IS_DELETE=0 AND ${columnpk}=#_{0};
+	</update>
+	
+	<select id="isRrepeat"  resultType="string" parameterType="${entityPath}.${className?substring(3)}">
+		SELECT '' FROM ${table.sqlName} where 1=2
+		<#list table.columns as column>
+	   	<#if 
+	    	!column.pk && 
+	    	column.columnNameLower!="remark" &&
+	    	column.columnNameLower!="status" &&
+	    	column.columnNameLower!="createDate" &&
+	    	column.columnNameLower!="createBy" &&
+	    	column.columnNameLower!="updateDate" && 
+	    	column.columnNameLower!="updateBy" && 
+			column.columnNameLower!="isDelete" >
+		<if test="${column.columnNameLower} != null">
+			UNION SELECT ${column.sqlName} FROM ${table.sqlName} where IS_DELETE=#_{isDelete} AND ${column.sqlName}=#_{${column.columnNameLower}} <if test="id != null">AND ${columnpk}!=#_{id}</if>
+		</if>
+		</#if>
+	   	</#list>
+	</select>
+
+	<select id="findById" resultMap="${className?substring(3)}Map" parameterType="string" >
+		SELECT * FROM ${table.sqlName} WHERE IS_DELETE=0 AND ${columnpk}=#_{id};
+	</select>
+
+	<select id="findByField" resultMap="${className?substring(3)}Map" parameterType="${entityPath}.${className?substring(3)}">
+		SELECT * FROM ${table.sqlName} WHERE 1=1 
+		<if test="id != null">
+			AND ${columnpk}=#_{id}
+		</if>
+		<#list table.columns as column>
+	   	<#if !column.pk>
+		<if test="${column.columnNameLower} != null">
+			AND ${column.sqlName}=#_{${column.columnNameLower}}
+		</if>
+		</#if>
+	   	</#list>
+		<if test="from != null">
+			LIMIT #_{from},#_{rows};
+		</if>
+		<if test="orderby != null">
+			ORDER BY $_{orderby}
+		</if>
+	</select>
+
+	<select id="findAll" resultMap="${className?substring(3)}Map">
+		SELECT * FROM ${table.sqlName} WHERE IS_DELETE=0;
+	</select>
+
+	<select id="search" resultType="Map">
+		SELECT * FROM ${table.sqlName} WHERE IS_DELETE=0;
+	</select>
+	
+	<select id="sql" resultMap="${className?substring(3)}Map" parameterType="${conditionPath}.${className?substring(3)}Sql" statementType="STATEMENT">
+		$_{sql}
+	</select>
+
+    <select id="exesql" resultType="object" parameterType="string" statementType="STATEMENT">
+        $_{value}
+    </select>
+
+	<resultMap type="${entityPath}.${className?substring(3)}" id="${className?substring(3)}Map">
+		<result property="id" column="${columnpk}"/>
+	   	<#list table.columns as column>
+	   	<#if !column.pk>
+		<result property="${column.columnNameLower}" column="${column.sqlName}"/>
+		</#if>
+	   	</#list>
+	</resultMap>
+    <!-- 公共方法  END-->
+
+</mapper>
